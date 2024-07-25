@@ -18,6 +18,19 @@
 
 
 
+#define MCP9808_REG_SENSOR_CONFIG       0x01
+#define MCP9808_REG_LIMIT_UPPER         0x02
+#define MCP9808_REG_LIMIT_LOWER         0x03
+#define MCP9808_REG_LIMIT_CRIT          0x04
+#define MCP9808_REG_TEMP_REG            0x05
+#define MCP9808_REG_MANUFACTUR_ID       0x06
+#define MCP9808_REG_DEV_ID_VERSION      0x07
+#define MCP9808_REG_RESOLUTION          0X08
+
+
+
+
+
 struct mcp9808_device {
     struct rt_i2c_bus_device * i2c_bus;
     rt_uint8_t addr;

@@ -62,7 +62,7 @@ int mcp9808_samplle(void)
 
     return RT_EOK;
 }
-INIT_APP_EXPORT(mcp9808_samplle);
+//INIT_APP_EXPORT(mcp9808_samplle);
 
 
 #define MCP9808_IIC_DEV_NAME    "i2c1"
