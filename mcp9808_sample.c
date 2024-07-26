@@ -11,12 +11,19 @@
 #include "sensor_mcp9808.h"
 
 
+#define DBG_TAG     "MCP9808"
+#define DBG_LVL     DBG_LOG
+#include <rtdbg.h>
 
 
 
 static void seneor_mcp9808_sample_entry(void *parameter)
 {
     rt_device_t dev = RT_NULL;
+    
+    rt_sensor_t mcp9808_senrot;
+    rt_sensor_data_t mcp9808_data;
+    
     struct rt_sensor_data sensor_data;
     rt_size_t res;
 
@@ -39,7 +46,7 @@ static void seneor_mcp9808_sample_entry(void *parameter)
             return;
         }
         else {
-            rt_kprintf("temp:%3d.%d , timestamp:%5d\n", ((rt_int32_t)(sensor_data.data.temp*10))/10, ((rt_int32_t)sensor_data.data.temp * 10) % 10, sensor_data.timestamp);
+            rt_kprintf("temp:%6d , timestamp:%5d\n", (rt_int32_t)(sensor_data.data.temp*1000),  sensor_data.timestamp);
         }
         rt_thread_mdelay(2000);
     }
@@ -52,7 +59,7 @@ int mcp9808_samplle(void)
 
     mcp9808_thread = rt_thread_create("mcp",
                                    seneor_mcp9808_sample_entry,
-                                   "tm-mcp",
+                                   "tm-9808",
                                    1024,
                                    RT_THREAD_PRIORITY_MAX / 2,
                                    20);
@@ -65,19 +72,23 @@ int mcp9808_samplle(void)
 INIT_APP_EXPORT(mcp9808_samplle);
 
 
-#define MCP9808_IIC_DEV_NAME    "i2c1"
-#define MCP9808_IIC_DEV_ADDR    0x18
+#define MCP9808_IIC_BUS_NAME    "i2c1"
+#define MCP9808_IIC_ADDR        0x18
+
 
 int rt_hw_mcp9808_port(void)
 {
     struct rt_sensor_config cfg;
     
-    cfg.intf.dev_name = MCP9808_IIC_DEV_NAME;
-    cfg.intf.arg      = (void *)MCP9808_IIC_DEV_ADDR;
+    cfg.intf.dev_name = MCP9808_IIC_BUS_NAME;
+    cfg.intf.arg      = (void *)MCP9808_IIC_ADDR;
     
+    rt_hw_mcp9808_init("9808", &cfg);
     
-    rt_hw_mcp9808_init("mcp", &cfg);
-
+    LOG_I("MCP9808(sensor_v2) has been initialized!");
+    LOG_I("Temperature mount cmd:        [sensor probe tm-9808]");
+    LOG_I("Temperature read 5 times cmd: [sensor read 5]");    
+    
     return RT_EOK;
 }
 INIT_COMPONENT_EXPORT(rt_hw_mcp9808_port);

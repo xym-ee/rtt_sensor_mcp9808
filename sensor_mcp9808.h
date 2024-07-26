@@ -32,7 +32,7 @@
 
 
 struct mcp9808_device {
-    struct rt_i2c_bus_device * i2c_bus;
+    struct rt_i2c_bus_device * i2c;
     rt_uint8_t addr;
 
 };

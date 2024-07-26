@@ -15,15 +15,68 @@
 #include <rtdbg.h>
 
 
-mcp9808_device_t mcp9808_dev = RT_NULL;
+
+
+/**
+ * This function initializes aht10 registered device driver
+ *
+ * @param dev the name of aht10 device
+ *
+ * @return the aht10 device.
+ */
+static mcp9808_device_t _mcp9808_init(struct rt_sensor_config *cfg)
+{
+    mcp9808_device_t dev;
+
+    dev = rt_calloc(1, sizeof(struct mcp9808_device));
+    if (dev == RT_NULL) {
+        LOG_E("Can't allocate memory for sr04 device on '%s'.\n", cfg->intf.dev_name);
+        return RT_NULL;
+    }
+    
+    dev->i2c = (struct rt_i2c_bus_device *)rt_device_find(cfg->intf.dev_name);
+
+    if (dev->i2c == RT_NULL)
+    {
+        LOG_E("can't find %s device!", cfg->intf.dev_name);
+    }
+    
+    dev->addr = (rt_uint32_t)cfg->intf.arg;
+    
+    return dev;
+}
 
 
 
+
+static rt_ssize_t _mcp9808_polling_get_data(rt_sensor_t sensor, rt_sensor_data_t data)
+{
+    //struct aht10_device *aht10_dev = (struct aht10_device *)sensor->parent.user_data;
+
+    if (sensor->info.type == RT_SENSOR_TYPE_TEMP)
+    {
+        //data->data.temp = aht10_read_temperature(aht10_dev);
+        data->timestamp = rt_sensor_get_ts();
+        return 1;
+    }
+    else if (sensor->info.type == RT_SENSOR_TYPE_HUMI)
+    {
+        //data->data.humi = aht10_read_humidity(aht10_dev);
+        data->timestamp = rt_sensor_get_ts();
+        return 1;
+    }
+    else
+    {
+        return -RT_EINVAL;
+    }
+}
 
 
 static rt_ssize_t mcp9808_fetch_data(rt_sensor_t sensor, rt_sensor_data_t buf, rt_size_t len)
 {
     rt_sensor_data_t data = buf;
+    
+    mcp9808_device_t mcp9808 = sensor->parent.user_data;
     
     if (len < 1)
     {
@@ -43,12 +96,12 @@ static rt_ssize_t mcp9808_fetch_data(rt_sensor_t sensor, rt_sensor_data_t buf, r
         
         rt_uint8_t recv_buf[2] = {0x00, 0x00};
         
-        rt_uint8_t send_buf[1] = {MCP9808_REG_TEMP_REG};      
+        rt_uint8_t send_buf[1] = {MCP9808_REG_TEMP_REG};
 
-        rt_i2c_master_send(mcp9808_dev->i2c_bus, mcp9808_dev->addr, RT_I2C_WR, send_buf, 1);
+        rt_i2c_master_send(mcp9808->i2c, mcp9808->addr, RT_I2C_WR, send_buf, 1);
 
-        rt_i2c_master_recv(mcp9808_dev->i2c_bus, mcp9808_dev->addr, RT_I2C_RD, recv_buf, 2);
-        
+        rt_i2c_master_recv(mcp9808->i2c, mcp9808->addr, RT_I2C_RD, recv_buf, 2);
+    
         
         /* 高字节高位3bit为标志位 */
         recv_buf[0] = recv_buf[0] & 0x1F;       //Clear flag bits
@@ -65,7 +118,7 @@ static rt_ssize_t mcp9808_fetch_data(rt_sensor_t sensor, rt_sensor_data_t buf, r
         }
         
         data->type = RT_SENSOR_TYPE_TEMP;
-        data->data.temp = temperature*10;
+        data->data.temp = temperature;
         data->timestamp = rt_sensor_get_ts();
         LOG_D("%s:%d", __func__, data->data.temp);
         data++;
@@ -86,7 +139,7 @@ static rt_err_t mcp9808_control(struct rt_sensor_device* sensor, int cmd, void* 
 
 
 
-static struct rt_sensor_ops sensor_ops =
+static const struct rt_sensor_ops sensor_ops =
 {
     mcp9808_fetch_data,
     mcp9808_control,
@@ -94,42 +147,26 @@ static struct rt_sensor_ops sensor_ops =
 
 
 
-static mcp9808_device_t _mcp9808_init(struct rt_sensor_config *cfg)
-{
-    mcp9808_device_t dev;
-
-    dev = rt_calloc(1, sizeof(struct mcp9808_device));
-    if (dev == RT_NULL) {
-        LOG_E("Can't allocate memory for sr04 device on '%s'.\n", cfg->intf.dev_name);
-        return RT_NULL;
-    }
-    
-    dev->i2c_bus = (struct rt_i2c_bus_device *)rt_device_find(cfg->intf.dev_name);
-
-    if (dev->i2c_bus == RT_NULL)
-    {
-        LOG_E("can't find %s device!", cfg->intf.dev_name);
-    }
-    
-    dev->addr = (rt_uint32_t)cfg->intf.arg;
-    
-    return dev;
-}
 
 
+
+/*
+    负责找 iic 设备嘛？
+
+
+
+*/
 int rt_hw_mcp9808_init(const char *name, struct rt_sensor_config *cfg)
 {
     rt_int8_t result;
     rt_sensor_t sensor_mcp9808 = RT_NULL;
-
-    
-    mcp9808_dev = _mcp9808_init(cfg);
 
     /* sr04 sensor register */
     sensor_mcp9808 = rt_calloc(1, sizeof(struct rt_sensor_device));
     if (sensor_mcp9808 == RT_NULL) {
         return -1;
     }
+    sensor_mcp9808->parent.user_data = (void*)_mcp9808_init(cfg);
 
     sensor_mcp9808->info.type   = RT_SENSOR_TYPE_TEMP;
     sensor_mcp9808->info.vendor = RT_SENSOR_VENDOR_UNKNOWN;
@@ -152,6 +189,8 @@ int rt_hw_mcp9808_init(const char *name, struct rt_sensor_config *cfg)
 
     rt_memcpy(&sensor_mcp9808->config, cfg, sizeof(struct rt_sensor_config));
     sensor_mcp9808->ops = &sensor_ops;
+    
+    
 
     result = rt_hw_sensor_register(sensor_mcp9808, name, RT_DEVICE_FLAG_RDONLY, RT_NULL);
     if (result != RT_EOK) {
