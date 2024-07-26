@@ -12,9 +12,9 @@
 #define __SENSOR_MCP9808_H__
 
 #include <rtthread.h>
-//#include <rtdevice.h>
+#include <rtdevice.h>
 
-#include "sensor.h"
+#include <drivers/sensor_v2.h>
 
 
 

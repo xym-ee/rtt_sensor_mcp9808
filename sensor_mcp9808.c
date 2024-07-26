@@ -21,14 +21,13 @@ mcp9808_device_t mcp9808_dev = RT_NULL;
 
 
 
-
-static rt_size_t mcp9808_fetch_data(struct rt_sensor_device *sensor, void *buf, rt_size_t size)
+static rt_ssize_t mcp9808_fetch_data(rt_sensor_t sensor, rt_sensor_data_t buf, rt_size_t len)
 {
-    struct rt_sensor_data* data = buf;
+    rt_sensor_data_t data = buf;
     
-    if (size < 1)
+    if (len < 1)
     {
-        LOG_E("%s:read size err! size=%d", __func__, size);
+        LOG_E("%s:read size err! size=%d", __func__, len);
         return 0;
     }
 
@@ -38,7 +37,7 @@ static rt_size_t mcp9808_fetch_data(struct rt_sensor_device *sensor, void *buf, 
         return 0;
     }
 
-    for (int i = 0; i < size; i++)
+    for (int i = 0; i < len; i++)
     {
         float temperature = 0.0; 
         
@@ -65,14 +64,14 @@ static rt_size_t mcp9808_fetch_data(struct rt_sensor_device *sensor, void *buf, 
             temperature = (recv_buf[0] * 16.0 + recv_buf[1] / 16.0);
         }
         
-        data->type = RT_SENSOR_CLASS_TEMP;
+        data->type = RT_SENSOR_TYPE_TEMP;
         data->data.temp = temperature*10;
         data->timestamp = rt_sensor_get_ts();
         LOG_D("%s:%d", __func__, data->data.temp);
         data++;
     }
 
-    return size;
+    return len;
 }
 
 
@@ -80,27 +79,7 @@ static rt_err_t mcp9808_control(struct rt_sensor_device* sensor, int cmd, void* 
 {
     rt_err_t result = RT_EOK;
 
-    switch (cmd)
-    {
-    case RT_SENSOR_CTRL_GET_ID:
-        *(rt_uint8_t*)args = sens_temp_tbl[SENS_TEMP_01].sens_id;
-        break;
-    case RT_SENSOR_CTRL_SET_ODR:
-        result = temp_sensor_set_odr(sensor, (rt_uint32_t)args & 0xffff);
-        break;
-    case RT_SENSOR_CTRL_SET_RANGE:
-        result = temp_sensor_set_range(sensor, (rt_uint32_t)args);
-        break;
-    case RT_SENSOR_CTRL_SET_POWER:
-        result = temp_sensor_set_power(sensor, (rt_uint32_t)args & 0xff);
-        break;
-    case RT_SENSOR_CTRL_SELF_TEST:
-        /* TODO */
-        result = -RT_EINVAL;
-        break;
-    default:
-        return -RT_EINVAL;
-    }
+
     return result;
 }
 
@@ -132,7 +111,7 @@ static mcp9808_device_t _mcp9808_init(struct rt_sensor_config *cfg)
         LOG_E("can't find %s device!", cfg->intf.dev_name);
     }
     
-    dev->addr = (rt_uint32_t)cfg->intf.user_data;
+    dev->addr = (rt_uint32_t)cfg->intf.arg;
     
     return dev;
 }
@@ -152,14 +131,24 @@ int rt_hw_mcp9808_init(const char *name, struct rt_sensor_config *cfg)
         return -1;
     }
 
-    sensor_mcp9808->info.type       = RT_SENSOR_CLASS_TEMP;
-    sensor_mcp9808->info.vendor     = RT_SENSOR_VENDOR_UNKNOWN;
-    sensor_mcp9808->info.model      = "mcp";
-    sensor_mcp9808->info.unit       = RT_SENSOR_UNIT_DCELSIUS;
-    sensor_mcp9808->info.intf_type  = RT_SENSOR_INTF_I2C;
-    sensor_mcp9808->info.range_max  = 12500;
-    sensor_mcp9808->info.range_min  = -4000;
-    sensor_mcp9808->info.period_min = 100;
+    sensor_mcp9808->info.type   = RT_SENSOR_TYPE_TEMP;
+    sensor_mcp9808->info.vendor = RT_SENSOR_VENDOR_UNKNOWN;
+    sensor_mcp9808->info.name   = "mcp9808";
+    sensor_mcp9808->info.unit   = RT_SENSOR_UNIT_CELSIUS;
+
+    RT_SENSOR_MODE_SET_ACCURACY(sensor_mcp9808->info.mode, RT_SENSOR_MODE_ACCURACY_MEDIUM);
+    RT_SENSOR_MODE_SET_POWER(sensor_mcp9808->info.mode, RT_SENSOR_MODE_POWER_MEDIUM);
+    RT_SENSOR_MODE_SET_FETCH(sensor_mcp9808->info.mode, RT_SENSOR_MODE_FETCH_POLLING);
+    
+    sensor_mcp9808->info.intf_type   = RT_SENSOR_INTF_I2C;
+    sensor_mcp9808->info.acquire_min = 100;
+
+    sensor_mcp9808->info.accuracy.resolution = 0.0625;
+    sensor_mcp9808->info.accuracy.error      = 0.5;
+    
+    sensor_mcp9808->info.scale.range_max = 125.0;
+    sensor_mcp9808->info.scale.range_min = -40.0;
+    
 
     rt_memcpy(&sensor_mcp9808->config, cfg, sizeof(struct rt_sensor_config));
     sensor_mcp9808->ops = &sensor_ops;

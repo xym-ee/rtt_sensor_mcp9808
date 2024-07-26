@@ -39,7 +39,7 @@ static void seneor_mcp9808_sample_entry(void *parameter)
             return;
         }
         else {
-            rt_kprintf("distance:%3d.%dcm, timestamp:%5d\n", sensor_data.data.proximity / 10, sensor_data.data.proximity % 10, sensor_data.timestamp);
+            rt_kprintf("temp:%3d.%d , timestamp:%5d\n", ((rt_int32_t)(sensor_data.data.temp*10))/10, ((rt_int32_t)sensor_data.data.temp * 10) % 10, sensor_data.timestamp);
         }
         rt_thread_mdelay(2000);
     }
@@ -52,7 +52,7 @@ int mcp9808_samplle(void)
 
     mcp9808_thread = rt_thread_create("mcp",
                                    seneor_mcp9808_sample_entry,
-                                   "temp_mcp",
+                                   "tm-mcp",
                                    1024,
                                    RT_THREAD_PRIORITY_MAX / 2,
                                    20);
@@ -62,7 +62,7 @@ int mcp9808_samplle(void)
 
     return RT_EOK;
 }
-//INIT_APP_EXPORT(mcp9808_samplle);
+INIT_APP_EXPORT(mcp9808_samplle);
 
 
 #define MCP9808_IIC_DEV_NAME    "i2c1"
@@ -73,7 +73,7 @@ int rt_hw_mcp9808_port(void)
     struct rt_sensor_config cfg;
     
     cfg.intf.dev_name = MCP9808_IIC_DEV_NAME;
-    cfg.intf.user_data = (void *)MCP9808_IIC_DEV_ADDR;
+    cfg.intf.arg      = (void *)MCP9808_IIC_DEV_ADDR;
     
     
     rt_hw_mcp9808_init("mcp", &cfg);
